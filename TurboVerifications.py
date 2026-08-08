@@ -11,7 +11,7 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# ---------- FIX: REMOVE DEFAULT HELP COMMAND ----------
+# ---------- REMOVE DEFAULT HELP ----------
 bot.remove_command('help')
 
 # ---------- WARNING STORAGE ----------
@@ -145,8 +145,9 @@ async def help_command(ctx):
         inline=False
     )
     embed.add_field(
-        name='👑 Role Management (NEW)',
+        name='👑 Role Management',
         value='`!giveall @role` - Give a role to EVERYONE\n'
+              '`!removeall @role` - Remove a role from EVERYONE\n'
               '`!giverole @role @user` - Give a role to a specific user\n'
               '`!removerole @role @user` - Remove a role from a user',
         inline=False
@@ -197,7 +198,7 @@ async def ticket_setup(ctx):
     view = TicketButton()
     await ctx.send(embed=embed, view=view)
 
-# ---------- ROLE MANAGEMENT (NEW) ----------
+# ---------- ROLE MANAGEMENT ----------
 @bot.command(name='giveall')
 @commands.has_permissions(manage_roles=True)
 async def giveall(ctx, role: discord.Role):
@@ -241,6 +242,51 @@ async def giveall(ctx, role: discord.Role):
     await ctx.send(
         f'🎉 **Done!** Role `{role.name}` given to **{success}** members '
         f'({already_had} already had it). Failed: **{failed}**.'
+    )
+
+@bot.command(name='removeall')
+@commands.has_permissions(manage_roles=True)
+async def removeall(ctx, role: discord.Role):
+    """Remove a role from EVERYONE in the server."""
+    guild = ctx.guild
+    bot_member = guild.me
+
+    if not bot_member.guild_permissions.manage_roles:
+        await ctx.send('❌ I need `Manage Roles` permission.')
+        return
+    if role >= bot_member.top_role:
+        await ctx.send(f'❌ `{role.name}` is above my highest role. I cannot remove it.')
+        return
+
+    confirm = await ctx.send(f'⚠️ Remove `{role.name}` from **ALL** members? Reply with `yes` within 30s.')
+    def check(m):
+        return m.author == ctx.author and m.channel == ctx.channel and m.content.lower() == 'yes'
+    try:
+        await bot.wait_for('message', timeout=30.0, check=check)
+    except asyncio.TimeoutError:
+        await ctx.send('⏰ Cancelled.')
+        return
+
+    await ctx.send(f'⏳ Removing `{role.name}` from all members...')
+
+    success = 0
+    failed = 0
+    not_had = 0
+
+    async for member in guild.fetch_members(limit=None):
+        if role not in member.roles:
+            not_had += 1
+            continue
+        try:
+            await member.remove_roles(role, reason=f'Mass role removal by {ctx.author}')
+            success += 1
+        except:
+            failed += 1
+        await asyncio.sleep(0.2)
+
+    await ctx.send(
+        f'🎉 **Done!** Role `{role.name}` removed from **{success}** members '
+        f'({not_had} didn\'t have it). Failed: **{failed}**.'
     )
 
 @bot.command(name='giverole')
