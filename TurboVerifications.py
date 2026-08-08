@@ -14,6 +14,19 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 # ---------- REMOVE DEFAULT HELP ----------
 bot.remove_command('help')
 
+# ---------- ANTI-DUPLICATE COMMAND FILTER ----------
+last_command = {}
+
+@bot.before_invoke
+async def before_invoke(ctx):
+    """Prevent duplicate commands from the same user within 2 seconds."""
+    key = (ctx.author.id, ctx.command.name)
+    now = asyncio.get_event_loop().time()
+    if key in last_command and now - last_command[key] < 2.0:
+        ctx.command = None  # cancel execution
+        return
+    last_command[key] = now
+
 # ---------- WARNING STORAGE ----------
 warnings = {}
 
@@ -96,64 +109,68 @@ class CloseTicketView(discord.ui.View):
 async def on_ready():
     print(f'✅ TurboBot is online as {bot.user}')
     print(f'✅ In {len(bot.guilds)} guild(s)')
-    await bot.change_presence(activity=discord.Game(name='!help'))
+    await bot.change_presence(activity=discord.Game(name='Made by turbo.2 ❤️'))
 
-# ---------- HELP COMMAND ----------
+# ---------- HELP COMMAND (FANCY DASHBOARD) ----------
 @bot.command(name='help')
 async def help_command(ctx):
     embed = discord.Embed(
-        title='🤖 TurboBot Commands',
-        description='Here are all my commands:',
-        color=discord.Color.blue()
+        title='🤖 **TurboBot Commands**',
+        description='Here\'s what I can do for you:',
+        color=discord.Color.purple()
     )
+    embed.set_thumbnail(url=ctx.guild.me.avatar.url if ctx.guild.me.avatar else None)
 
     embed.add_field(
         name='🔐 Verification',
-        value='`!setup_verification` - Send the verification embed',
+        value='`!setup_verification` – Send the verification embed',
         inline=False
     )
     embed.add_field(
         name='🎫 Tickets',
-        value='`!ticket` - Send the ticket creation embed with button',
+        value='`!ticket` – Send the ticket creation embed with button',
         inline=False
     )
     embed.add_field(
         name='🛡️ Moderation',
-        value='`!kick @user [reason]` - Kick a member\n'
-              '`!ban @user [reason]` - Ban a member\n'
-              '`!mute @user [reason]` - Mute a member\n'
-              '`!unmute @user` - Unmute a member\n'
-              '`!warn @user [reason]` - Warn a member\n'
-              '`!warnings @user` - Show warnings for a user\n'
-              '`!clear [amount]` - Delete messages (1-100)\n'
-              '`!purge` - Delete ALL messages in this channel',
+        value='`!kick @user [reason]` – Kick a member\n'
+              '`!ban @user [reason]` – Ban a member\n'
+              '`!mute @user [reason]` – Mute a member\n'
+              '`!unmute @user` – Unmute a member\n'
+              '`!warn @user [reason]` – Warn a member\n'
+              '`!warnings @user` – Show warnings for a user\n'
+              '`!clear [amount]` – Delete messages (1‑100)\n'
+              '`!purge` – Delete **all** messages in this channel',
         inline=False
     )
     embed.add_field(
         name='📊 Utility',
-        value='`!serverinfo` - Show server info\n'
-              '`!userinfo @user` - Show user info\n'
-              '`!avatar @user` - Show user avatar\n'
-              '`!ping` - Check bot latency',
+        value='`!serverinfo` – Show server info\n'
+              '`!userinfo @user` – Show user info\n'
+              '`!avatar @user` – Show user avatar\n'
+              '`!ping` – Check bot latency',
         inline=False
     )
     embed.add_field(
         name='🎲 Fun',
-        value='`!roll` - Roll a dice (1-6)\n'
-              '`!coinflip` - Flip a coin\n'
-              '`!say [message]` - Make me say something',
+        value='`!roll` – Roll a dice (1‑6)\n'
+              '`!coinflip` – Flip a coin\n'
+              '`!say [message]` – Make me say something',
         inline=False
     )
     embed.add_field(
         name='👑 Role Management',
-        value='`!giveall @role` - Give a role to EVERYONE\n'
-              '`!removeall @role` - Remove a role from EVERYONE\n'
-              '`!giverole @role @user` - Give a role to a specific user\n'
-              '`!removerole @role @user` - Remove a role from a user',
+        value='`!giveall @role` – Give a role to **everyone**\n'
+              '`!removeall @role` – Remove a role from **everyone**\n'
+              '`!giverole @role @user` – Give a role to a specific user\n'
+              '`!removerole @role @user` – Remove a role from a user',
         inline=False
     )
 
-    embed.set_footer(text='Made with ❤️ | TurboBot')
+    embed.set_footer(
+        text='Made by turbo.2 ❤️',
+        icon_url=ctx.author.avatar.url if ctx.author.avatar else None
+    )
     await ctx.send(embed=embed)
 
 # ---------- VERIFICATION SETUP ----------
@@ -492,6 +509,9 @@ async def say(ctx, *, message):
 # ---------- ERROR HANDLING ----------
 @bot.event
 async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandInvokeError) and ctx.command is None:
+        # Duplicate command filtered – ignore silently
+        return
     if isinstance(error, commands.MissingPermissions):
         await ctx.send('❌ You do not have permission to use this command.')
     elif isinstance(error, commands.MissingRequiredArgument):
