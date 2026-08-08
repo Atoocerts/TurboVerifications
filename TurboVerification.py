@@ -1,14 +1,15 @@
 import discord
 from discord.ext import commands
 import os
-import asyncio
 
+# ---------- INTENTS ----------
 intents = discord.Intents.default()
 intents.members = True
 intents.message_content = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
+# ---------- VERIFICATION BUTTON ----------
 class VerifyButton(discord.ui.View):
     def __init__(self, role: discord.Role):
         super().__init__(timeout=None)
@@ -31,22 +32,26 @@ class VerifyButton(discord.ui.View):
         except Exception as e:
             await interaction.response.send_message(f'❌ Error: {e}', ephemeral=True)
 
+# ---------- ON READY ----------
 @bot.event
 async def on_ready():
     print(f'✅ TurboVerification is online as {bot.user}')
     print(f'✅ In {len(bot.guilds)} guild(s)')
 
+# ---------- SETUP COMMAND ----------
 @bot.command(name='setup_verification')
 @commands.has_permissions(manage_roles=True)
 async def setup_verification(ctx):
     guild = ctx.guild
     bot_member = guild.me
 
+    # Look for the exact role name "👥 Member"
     role = discord.utils.get(guild.roles, name='👥 Member')
     if not role:
-        await ctx.send('❌ Role **👥 Member** not found. Please create it first (exactly with the emoji).')
+        await ctx.send('❌ Role **👥 Member** not found. Please create it first (exactly with the emoji and space).')
         return
 
+    # Permission checks
     if not bot_member.guild_permissions.manage_roles:
         await ctx.send('❌ I need `Manage Roles` permission.')
         return
@@ -57,6 +62,7 @@ async def setup_verification(ctx):
         await ctx.send(f'❌ `{role.name}` is managed by an integration and cannot be assigned.')
         return
 
+    # Send the verification embed with button
     embed = discord.Embed(
         title='🔐 Verification Required',
         description='Click the **Verify** button below to gain access to the server.',
@@ -68,14 +74,16 @@ async def setup_verification(ctx):
     await ctx.send(embed=embed, view=view)
     await ctx.send(f'✅ Verification set up! Users will receive the `{role.name}` role.')
 
+# ---------- ERROR HANDLER ----------
 @setup_verification.error
 async def setup_error(ctx, error):
     if isinstance(error, commands.MissingPermissions):
-        await ctx.send('❌ You need `Manage Roles` permission.')
+        await ctx.send('❌ You need `Manage Roles` permission to use this command.')
 
-# ---------- SECURE TOKEN HANDLING ----------
-token = os.environ.get('MTUzNTQ5ODAwNTQxMzc1Njk3OA.GAzRBe.xxli5O1cvKRycwNeczklPEQhjokpEzGwXeFYxI')
+# ---------- SAFE TOKEN HANDLING ----------
+token = os.environ.get('TOKEN')
 if token is None:
     print('❌ Error: TOKEN environment variable not set!')
+    print('💡 Set it with: export TOKEN=your_token (Linux) or $env:TOKEN="your_token" (Windows)')
 else:
     bot.run(token)
