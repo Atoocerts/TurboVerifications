@@ -14,18 +14,22 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 # ---------- REMOVE DEFAULT HELP ----------
 bot.remove_command('help')
 
-# ---------- ANTI-DUPLICATE COMMAND FILTER ----------
+# ---------- ANTI-DUPLICATE + COOLDOWN ----------
 last_command = {}
 
 @bot.before_invoke
 async def before_invoke(ctx):
-    """Prevent duplicate commands from the same user within 2 seconds."""
+    """Prevent duplicate commands from the same user within 5 seconds."""
     key = (ctx.author.id, ctx.command.name)
     now = asyncio.get_event_loop().time()
-    if key in last_command and now - last_command[key] < 2.0:
+    if key in last_command and now - last_command[key] < 5.0:
         ctx.command = None  # cancel execution
         return
     last_command[key] = now
+
+# Global cooldown: 1 command per 5 seconds per user (added to each command)
+def global_cooldown():
+    return commands.cooldown(1, 5, commands.BucketType.user)
 
 # ---------- WARNING STORAGE ----------
 warnings = {}
@@ -113,6 +117,7 @@ async def on_ready():
 
 # ---------- HELP COMMAND (FANCY DASHBOARD) ----------
 @bot.command(name='help')
+@global_cooldown()
 async def help_command(ctx):
     embed = discord.Embed(
         title='🤖 **TurboBot Commands**',
@@ -176,6 +181,7 @@ async def help_command(ctx):
 # ---------- VERIFICATION SETUP ----------
 @bot.command(name='setup_verification')
 @commands.has_permissions(manage_roles=True)
+@global_cooldown()
 async def setup_verification(ctx):
     guild = ctx.guild
     bot_member = guild.me
@@ -206,6 +212,7 @@ async def setup_verification(ctx):
 # ---------- TICKET SETUP ----------
 @bot.command(name='ticket')
 @commands.has_permissions(manage_channels=True)
+@global_cooldown()
 async def ticket_setup(ctx):
     embed = discord.Embed(
         title='🎫 Support Tickets',
@@ -218,6 +225,7 @@ async def ticket_setup(ctx):
 # ---------- ROLE MANAGEMENT ----------
 @bot.command(name='giveall')
 @commands.has_permissions(manage_roles=True)
+@global_cooldown()
 async def giveall(ctx, role: discord.Role):
     """Give a role to EVERYONE in the server."""
     guild = ctx.guild
@@ -263,6 +271,7 @@ async def giveall(ctx, role: discord.Role):
 
 @bot.command(name='removeall')
 @commands.has_permissions(manage_roles=True)
+@global_cooldown()
 async def removeall(ctx, role: discord.Role):
     """Remove a role from EVERYONE in the server."""
     guild = ctx.guild
@@ -308,6 +317,7 @@ async def removeall(ctx, role: discord.Role):
 
 @bot.command(name='giverole')
 @commands.has_permissions(manage_roles=True)
+@global_cooldown()
 async def giverole(ctx, role: discord.Role, member: discord.Member):
     """Give a role to a specific user."""
     bot_member = ctx.guild.me
@@ -330,6 +340,7 @@ async def giverole(ctx, role: discord.Role, member: discord.Member):
 
 @bot.command(name='removerole')
 @commands.has_permissions(manage_roles=True)
+@global_cooldown()
 async def removerole(ctx, role: discord.Role, member: discord.Member):
     """Remove a role from a specific user."""
     bot_member = ctx.guild.me
@@ -353,6 +364,7 @@ async def removerole(ctx, role: discord.Role, member: discord.Member):
 # ---------- MODERATION ----------
 @bot.command(name='kick')
 @commands.has_permissions(kick_members=True)
+@global_cooldown()
 async def kick(ctx, member: discord.Member, *, reason="No reason provided"):
     try:
         await member.kick(reason=reason)
@@ -362,6 +374,7 @@ async def kick(ctx, member: discord.Member, *, reason="No reason provided"):
 
 @bot.command(name='ban')
 @commands.has_permissions(ban_members=True)
+@global_cooldown()
 async def ban(ctx, member: discord.Member, *, reason="No reason provided"):
     try:
         await member.ban(reason=reason)
@@ -371,6 +384,7 @@ async def ban(ctx, member: discord.Member, *, reason="No reason provided"):
 
 @bot.command(name='mute')
 @commands.has_permissions(manage_roles=True)
+@global_cooldown()
 async def mute(ctx, member: discord.Member, *, reason="No reason provided"):
     muted_role = discord.utils.get(ctx.guild.roles, name='Muted')
     if not muted_role:
@@ -384,6 +398,7 @@ async def mute(ctx, member: discord.Member, *, reason="No reason provided"):
 
 @bot.command(name='unmute')
 @commands.has_permissions(manage_roles=True)
+@global_cooldown()
 async def unmute(ctx, member: discord.Member):
     muted_role = discord.utils.get(ctx.guild.roles, name='Muted')
     if not muted_role:
@@ -397,6 +412,7 @@ async def unmute(ctx, member: discord.Member):
 
 @bot.command(name='warn')
 @commands.has_permissions(manage_roles=True)
+@global_cooldown()
 async def warn(ctx, member: discord.Member, *, reason="No reason provided"):
     guild_id = ctx.guild.id
     user_id = member.id
@@ -422,6 +438,7 @@ async def warn(ctx, member: discord.Member, *, reason="No reason provided"):
 
 @bot.command(name='warnings')
 @commands.has_permissions(manage_roles=True)
+@global_cooldown()
 async def show_warnings(ctx, member: discord.Member):
     guild_id = ctx.guild.id
     user_id = member.id
@@ -440,6 +457,7 @@ async def show_warnings(ctx, member: discord.Member):
 
 @bot.command(name='clear')
 @commands.has_permissions(manage_messages=True)
+@global_cooldown()
 async def clear(ctx, amount: int):
     if amount < 1 or amount > 100:
         await ctx.send('❌ Please enter a number between 1 and 100.')
@@ -451,6 +469,7 @@ async def clear(ctx, amount: int):
 
 @bot.command(name='purge')
 @commands.has_permissions(administrator=True)
+@global_cooldown()
 async def purge(ctx):
     await ctx.send('⏳ Deleting all messages in this channel...')
     deleted = await ctx.channel.purge(limit=None)
@@ -458,6 +477,7 @@ async def purge(ctx):
 
 # ---------- UTILITY ----------
 @bot.command(name='serverinfo')
+@global_cooldown()
 async def serverinfo(ctx):
     guild = ctx.guild
     embed = discord.Embed(title=f'📊 {guild.name}', color=discord.Color.green())
@@ -470,6 +490,7 @@ async def serverinfo(ctx):
     await ctx.send(embed=embed)
 
 @bot.command(name='userinfo')
+@global_cooldown()
 async def userinfo(ctx, member: discord.Member = None):
     member = member or ctx.author
     embed = discord.Embed(title=f'👤 {member}', color=discord.Color.blue())
@@ -481,6 +502,7 @@ async def userinfo(ctx, member: discord.Member = None):
     await ctx.send(embed=embed)
 
 @bot.command(name='avatar')
+@global_cooldown()
 async def avatar(ctx, member: discord.Member = None):
     member = member or ctx.author
     embed = discord.Embed(title=f'{member}\'s Avatar', color=discord.Color.gold())
@@ -488,20 +510,24 @@ async def avatar(ctx, member: discord.Member = None):
     await ctx.send(embed=embed)
 
 @bot.command(name='ping')
+@global_cooldown()
 async def ping(ctx):
     await ctx.send(f'🏓 Pong! Latency: {round(bot.latency * 1000)}ms')
 
 # ---------- FUN ----------
 @bot.command(name='roll')
+@global_cooldown()
 async def roll(ctx):
     await ctx.send(f'🎲 You rolled a **{random.randint(1, 6)}**!')
 
 @bot.command(name='coinflip')
+@global_cooldown()
 async def coinflip(ctx):
     result = random.choice(['Heads', 'Tails'])
     await ctx.send(f'🪙 **{result}**!')
 
 @bot.command(name='say')
+@global_cooldown()
 async def say(ctx, *, message):
     await ctx.message.delete()
     await ctx.send(message)
