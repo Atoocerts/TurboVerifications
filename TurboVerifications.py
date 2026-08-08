@@ -12,7 +12,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 # ---------- FIX: REMOVE DEFAULT HELP COMMAND ----------
-bot.remove_command('help')   # <-- THIS IS THE FIX
+bot.remove_command('help')   # <-- THIS PREVENTS THE CRASH
 
 # ---------- WARNING STORAGE ----------
 warnings = {}
