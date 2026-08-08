@@ -3,7 +3,6 @@ from discord.ext import commands
 import os
 import random
 import asyncio
-import datetime
 
 # ---------- INTENTS ----------
 intents = discord.Intents.default()
@@ -12,8 +11,8 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# ---------- WARNING STORAGE (in-memory) ----------
-warnings = {}  # {guild_id: {user_id: [reason1, reason2, ...]}}
+# ---------- WARNING STORAGE ----------
+warnings = {}
 
 # ---------- VERIFICATION BUTTON ----------
 class VerifyButton(discord.ui.View):
@@ -48,13 +47,11 @@ class TicketButton(discord.ui.View):
         guild = interaction.guild
         member = interaction.user
 
-        # Check existing ticket
         for channel in guild.text_channels:
             if channel.name == f'ticket-{member.name.lower()}' and channel.topic == str(member.id):
                 await interaction.response.send_message('❌ You already have an open ticket!', ephemeral=True)
                 return
 
-        # Create ticket channel
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(read_messages=False),
             member: discord.PermissionOverwrite(read_messages=True, send_messages=True),
@@ -79,7 +76,6 @@ class TicketButton(discord.ui.View):
 
         await interaction.response.send_message(f'✅ Ticket created: {channel.mention}', ephemeral=True)
 
-# ---------- CLOSE TICKET BUTTON ----------
 class CloseTicketView(discord.ui.View):
     @discord.ui.button(label='🔒 Close Ticket', style=discord.ButtonStyle.red, custom_id='close_ticket')
     async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -293,8 +289,7 @@ async def clear(ctx, amount: int):
 @bot.command(name='purge')
 @commands.has_permissions(administrator=True)
 async def purge(ctx):
-    """Deletes ALL messages in the current channel."""
-    await ctx.send('⏳ Deleting all messages in this channel... (this may take a moment)')
+    await ctx.send('⏳ Deleting all messages in this channel...')
     deleted = await ctx.channel.purge(limit=None)
     await ctx.send(f'✅ Deleted {len(deleted)} messages.', delete_after=5)
 
