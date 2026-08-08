@@ -12,7 +12,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 # ---------- FIX: REMOVE DEFAULT HELP COMMAND ----------
-bot.remove_command('help')   # <-- THIS PREVENTS THE CRASH
+bot.remove_command('help')
 
 # ---------- WARNING STORAGE ----------
 warnings = {}
@@ -144,6 +144,13 @@ async def help_command(ctx):
               '`!say [message]` - Make me say something',
         inline=False
     )
+    embed.add_field(
+        name='👑 Role Management (NEW)',
+        value='`!giveall @role` - Give a role to EVERYONE\n'
+              '`!giverole @role @user` - Give a role to a specific user\n'
+              '`!removerole @role @user` - Remove a role from a user',
+        inline=False
+    )
 
     embed.set_footer(text='Made with ❤️ | TurboBot')
     await ctx.send(embed=embed)
@@ -189,6 +196,96 @@ async def ticket_setup(ctx):
     )
     view = TicketButton()
     await ctx.send(embed=embed, view=view)
+
+# ---------- ROLE MANAGEMENT (NEW) ----------
+@bot.command(name='giveall')
+@commands.has_permissions(manage_roles=True)
+async def giveall(ctx, role: discord.Role):
+    """Give a role to EVERYONE in the server."""
+    guild = ctx.guild
+    bot_member = guild.me
+
+    if not bot_member.guild_permissions.manage_roles:
+        await ctx.send('❌ I need `Manage Roles` permission.')
+        return
+    if role >= bot_member.top_role:
+        await ctx.send(f'❌ `{role.name}` is above my highest role. I cannot assign it.')
+        return
+
+    confirm = await ctx.send(f'⚠️ Give `{role.name}` to **ALL** members? Reply with `yes` within 30s.')
+    def check(m):
+        return m.author == ctx.author and m.channel == ctx.channel and m.content.lower() == 'yes'
+    try:
+        await bot.wait_for('message', timeout=30.0, check=check)
+    except asyncio.TimeoutError:
+        await ctx.send('⏰ Cancelled.')
+        return
+
+    await ctx.send(f'⏳ Adding `{role.name}` to all members...')
+
+    success = 0
+    failed = 0
+    already_had = 0
+
+    async for member in guild.fetch_members(limit=None):
+        if role in member.roles:
+            already_had += 1
+            continue
+        try:
+            await member.add_roles(role, reason=f'Mass role assign by {ctx.author}')
+            success += 1
+        except:
+            failed += 1
+        await asyncio.sleep(0.2)
+
+    await ctx.send(
+        f'🎉 **Done!** Role `{role.name}` given to **{success}** members '
+        f'({already_had} already had it). Failed: **{failed}**.'
+    )
+
+@bot.command(name='giverole')
+@commands.has_permissions(manage_roles=True)
+async def giverole(ctx, role: discord.Role, member: discord.Member):
+    """Give a role to a specific user."""
+    bot_member = ctx.guild.me
+
+    if not bot_member.guild_permissions.manage_roles:
+        await ctx.send('❌ I need `Manage Roles` permission.')
+        return
+    if role >= bot_member.top_role:
+        await ctx.send(f'❌ `{role.name}` is above my highest role. I cannot assign it.')
+        return
+    if role in member.roles:
+        await ctx.send(f'❌ {member.mention} already has the `{role.name}` role.')
+        return
+
+    try:
+        await member.add_roles(role, reason=f'Role assigned by {ctx.author}')
+        await ctx.send(f'✅ {member.mention} now has the `{role.name}` role.')
+    except:
+        await ctx.send('❌ I could not assign that role.')
+
+@bot.command(name='removerole')
+@commands.has_permissions(manage_roles=True)
+async def removerole(ctx, role: discord.Role, member: discord.Member):
+    """Remove a role from a specific user."""
+    bot_member = ctx.guild.me
+
+    if not bot_member.guild_permissions.manage_roles:
+        await ctx.send('❌ I need `Manage Roles` permission.')
+        return
+    if role >= bot_member.top_role:
+        await ctx.send(f'❌ `{role.name}` is above my highest role. I cannot remove it.')
+        return
+    if role not in member.roles:
+        await ctx.send(f'❌ {member.mention} does not have the `{role.name}` role.')
+        return
+
+    try:
+        await member.remove_roles(role, reason=f'Role removed by {ctx.author}')
+        await ctx.send(f'✅ Removed `{role.name}` from {member.mention}.')
+    except:
+        await ctx.send('❌ I could not remove that role.')
 
 # ---------- MODERATION ----------
 @bot.command(name='kick')
